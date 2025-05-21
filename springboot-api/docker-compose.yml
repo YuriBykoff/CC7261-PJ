@@ -1,0 +1,181 @@
+services:
+  db:
+    image: postgres:15 # Usar uma versão específica do PostgreSQL é recomendado
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: admin         # Nome de usuário do banco de dados
+      POSTGRES_PASSWORD: password    # Senha do banco de dados (use algo seguro em produção)
+      # POSTGRES_DB: NÂO defina um DB aqui, pois o script de inicialização criará os 3 necessários
+    ports:
+      - "5433:5432" # Mapeia a porta 5432 do container para 5433 na máquina host
+    volumes:
+      - pgdata:/var/lib/postgresql/data  # Volume para persistir os dados do banco
+      - ./docker/db/init:/docker-entrypoint-initdb.d # Mapeia o diretório com scripts de inicialização
+    healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U admin -d postgres"]
+        interval: 5s
+        timeout: 5s
+        retries: 5
+
+# Volumes podem ser definidos explicitamente se necessário gerenciamento externo
+# volumes:
+#   pgdata:
+
+# Redes podem ser definidas para melhor isolamento, mas não essencial inicialmente
+# networks:
+#   social-net: 
+
+  consul_server:
+    image: hashicorp/consul:1.18.0 # Correção: Usar nome completo da imagem oficial
+    container_name: consul_server
+    restart: unless-stopped
+    ports:
+      - "8500:8500" # Porta da API HTTP do Consul
+      - "8600:8600/udp" # Porta DNS do Consul (opcional, mas útil)
+    command: "agent -server -ui -client=0.0.0.0 -bind=0.0.0.0 -bootstrap-expect=1" # Roda em modo server com UI e permite conexões de qualquer IP
+    healthcheck:
+      test: ["CMD", "consul", "info"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app1:
+    build: .
+    container_name: social_app_1
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy # Espera o healthcheck do DB passar
+      consul_server: # Adiciona dependência do Consul
+        condition: service_healthy # Espera o healthcheck do Consul passar
+    ports:
+      - "8081:8080"
+      - "9090:9090" # Mapeia externa 9090 para interna 9090
+    volumes:
+      - ./container-logs/app1:/app/logs # Mapeia logs do container para o host
+    environment:
+      # --- Configurações Spring Boot --- 
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/social_db_1 # Conecta ao DB via nome do serviço
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update # Cria/atualiza tabelas
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
+      SPRING_PROFILES_ACTIVE: docker # Perfil opcional para configs específicas de docker
+      SPRING_APPLICATION_NAME: rede-social-service # Definir o nome da aplicação via env var
+      # --- Configurações da Aplicação --- 
+      SERVER_ID: server1
+      SERVER_HOST: app1
+      SERVER_PORT: 8080
+      GRPC_SERVER_PORT: 9090 # Correto: app1 escuta na 9090
+      # Outras configs opcionais (timeouts, intervalos)
+      # GRPC_CLIENT_TIMEOUT: 5
+      # HEARTBEAT_INTERVAL_MS: 10000
+      # CLOCKSYNC_INTERVAL_MS: 60000
+
+  app2:
+    build: .
+    container_name: social_app_2
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      consul_server: # Adiciona dependência do Consul
+        condition: service_healthy
+    ports:
+      - "8082:8080"
+      - "9091:9091" # Correto: Mapeia externa 9091 para interna 9091
+    volumes:
+      - ./container-logs/app2:/app/logs # Mapeia logs do container para o host
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/social_db_2
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_APPLICATION_NAME: rede-social-service # Definir o nome da aplicação via env var
+      # --- Configurações da Aplicação --- 
+      SERVER_ID: server2
+      SERVER_HOST: app2
+      SERVER_PORT: 8080
+      GRPC_SERVER_PORT: 9091 # Correto: app2 escuta na 9091
+
+  app3:
+    build: .
+    container_name: social_app_3
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      consul_server: # Adiciona dependência do Consul
+        condition: service_healthy
+    ports:
+      - "8083:8080"
+      - "9092:9092" # Correto: Mapeia externa 9092 para interna 9092
+    volumes:
+      - ./container-logs/app3:/app/logs # Mapeia logs do container para o host
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/social_db_3
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_APPLICATION_NAME: rede-social-service # Definir o nome da aplicação via env var
+      # --- Configurações da Aplicação --- 
+      SERVER_ID: server3
+      SERVER_HOST: app3
+      SERVER_PORT: 8080
+      GRPC_SERVER_PORT: 9092 # Correto: app3 escuta na 9092
+
+  app4:
+    build: .
+    container_name: social_app_4
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      consul_server: # Adiciona dependência do Consul
+        condition: service_healthy
+    ports:
+      - "8084:8080"
+      - "9093:9093" # Correto: Mapeia externa 9093 para interna 9093
+    volumes:
+      - ./container-logs/app4:/app/logs # Mapeia logs do container para o host
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/social_db_4
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_APPLICATION_NAME: rede-social-service # Definir o nome da aplicação via env var
+      # --- Configurações da Aplicação --- 
+      SERVER_ID: server4
+      SERVER_HOST: app4
+      SERVER_PORT: 8080
+      GRPC_SERVER_PORT: 9093 # Correto: app4 escuta na 9093
+
+  # Novo serviço Nginx como Load Balancer
+  nginx:
+    image: nginx:stable-alpine # Usar imagem oficial do Nginx (versão alpine é menor)
+    container_name: nginx_lb
+    restart: unless-stopped
+    ports:
+      - "80:80" # Expõe a porta 80 do Nginx para a máquina host
+    volumes:
+      # Mapeia o arquivo de configuração local para dentro do container Nginx
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro # :ro = read-only
+    depends_on:
+      # Garante que os backends e o Consul iniciem antes do Nginx
+      - app1
+      - app2
+      - app3
+      - app4
+      - consul_server # Adiciona dependência do Consul
+
+volumes:
+  pgdata: # Define o volume nomeado
+  # ADICIONADO: Embora não estritamente necessário para bind mounts, é boa prática
+  # O Docker criará os diretórios no host se não existirem na primeira vez.

@@ -1,0 +1,115 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.3.0'
+	id 'io.spring.dependency-management' version '1.1.6'
+	id 'com.google.protobuf' version '0.9.4'
+}
+
+ext {
+	set('springCloudVersion', '2023.0.4')
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	
+	// Dependências gRPC padrão
+	implementation 'io.grpc:grpc-netty-shaded:1.64.0' // Usar netty-shaded é recomendado
+	implementation 'io.grpc:grpc-protobuf:1.64.0'
+	implementation 'io.grpc:grpc-stub:1.64.0'
+	implementation 'io.grpc:grpc-services:1.64.0' // Já estava aqui, mas garantir versão
+	// Remover dependência antiga do Spring gRPC
+	// implementation 'org.springframework.grpc:spring-grpc-server-web-spring-boot-starter'
+	// Adicionar dependência correta do net.devh
+	implementation 'net.devh:grpc-spring-boot-starter:3.1.0.RELEASE'
+
+	// Dependência para anotações Jakarta (como @PreDestroy)
+	implementation 'jakarta.annotation:jakarta.annotation-api:2.1.1'
+
+	compileOnly 'org.projectlombok:lombok'
+	runtimeOnly 'org.postgresql:postgresql'
+	annotationProcessor 'org.projectlombok:lombok'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	// Remover dependência de teste do Spring gRPC
+	// testImplementation 'org.springframework.grpc:spring-grpc-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	implementation 'org.springframework.cloud:spring-cloud-starter-consul-discovery'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator' // Recomendado para health checks
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs 'build/generated/source/proto/main/grpc'
+            srcDirs 'build/generated/source/proto/main/java'
+        }
+    }
+}
+
+protobuf {
+    protoc {
+        artifact = 'com.google.protobuf:protoc:3.25.1'
+    }
+    plugins {
+        grpc {
+            artifact = 'io.grpc:protoc-gen-grpc-java:1.64.0'
+            // Não definir opções aqui
+        }
+    }
+    generateProtoTasks {
+        all()*.plugins { // Aplica a todos os plugins em todas as tarefas
+            grpc {
+                // Definir opções aqui, dentro do contexto do plugin na tarefa
+                option 'jakarta_omit'
+                option '@generated=omit'
+            }
+        }
+        all()*.builtins { // Aplica aos builtins em todas as tarefas
+            java { 
+                // Nenhuma opção extra para o builtin java por enquanto
+            }
+        }
+        // Podemos remover a seção generateProto específica se não houver
+        // configurações diferentes para essa tarefa em particular.
+        /*
+        generateProto { // Configuração específica para a tarefa 'generateProto' (se necessário)
+             plugins {
+                 grpc {} // Opções específicas podem ir aqui para sobrescrever as de cima
+             }
+             builtins {
+                 java {}
+             }
+        }
+        */
+    }
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+dependencyManagement {
+	imports {
+		mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+	}
+}

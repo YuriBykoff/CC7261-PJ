@@ -1,0 +1,262 @@
+syntax = "proto3";
+
+// Opção para definir o pacote Java onde as classes geradas serão colocadas
+option java_package = "com.example.projeto_sd.grpc";
+// Opção para definir o nome da classe externa que conterá todas as mensagens e serviços
+option java_outer_classname = "ServerCommsProto";
+
+// Importa Empty, usado para requisições/respostas sem parâmetros
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+package server_comms;
+
+// Serviço principal para comunicação entre os servidores
+service ServerService {
+  // RPC para um servidor se registrar ou atualizar suas informações em outro servidor
+  rpc RegisterOrUpdateRemoteServer(ServerInfo) returns (ServerRegistrationResponse);
+
+  // RPC para obter a lista de servidores conhecidos por um nó
+  rpc GetServerList(google.protobuf.Empty) returns (ServerListResponse);
+
+  // RPC para obter o tempo atual de um servidor (usado no Berkeley)
+  rpc GetTime(GetTimeRequest) returns (GetTimeResponse);
+
+  // RPC para instruir um servidor a ajustar seu relógio (usado no Berkeley)
+  rpc AdjustServerTime(AdjustTimeRequest) returns (AdjustTimeResponse);
+
+  // RPC para enviar um heartbeat (não-coordenador para coordenador)
+  rpc ReceiveHeartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+
+  // RPC para anunciar quem é o novo coordenador após uma eleição
+  rpc AnnounceCoordinator(CoordinatorAnnouncement) returns (google.protobuf.Empty);
+
+  // --- Novo RPC para Criação de Usuário (Chamado no Líder) ---
+  rpc CreateUserRPC(CreateUserRequest) returns (UserResponse);
+
+  // --- Novo RPC para Replicar Criação de Usuário (Líder -> Seguidores) ---
+  rpc ReplicateUserCreation(UserInfo) returns (ReplicationResponse);
+
+  // ----- Novas Mensagens e RPCs para Follow/Unfollow -----
+
+  // Requisição para seguir ou deixar de seguir um usuário
+  // Contém ambos os IDs, pois será usada tanto na chamada ao líder quanto na replicação.
+  rpc FollowUserRPC(FollowRequest) returns (ReplicationResponse);
+  
+  // RPC para solicitar ao coordenador que processe uma ação de deixar de seguir
+  rpc UnfollowUserRPC(FollowRequest) returns (ReplicationResponse);
+
+  // RPC para replicar a ação de seguir (Líder -> Seguidores)
+  rpc ReplicateFollow(FollowRequest) returns (ReplicationResponse);
+
+  // RPC para replicar a ação de deixar de seguir (Líder -> Seguidores)
+  rpc ReplicateUnfollow(FollowRequest) returns (ReplicationResponse);
+
+  // ----- Fim das Novas Mensagens e RPCs para Follow/Unfollow -----
+
+  // ----- Novos RPCs para Posts -----
+
+  // RPC para solicitar a criação de um novo post (Chamado no Coordenador)
+  rpc CreatePostRPC(CreatePostRequest) returns (CreatePostResponse);
+
+  // RPC para replicar a criação de um post (Coordenador -> Seguidores)
+  rpc ReplicatePostCreation(PostInfo) returns (ReplicationResponse);
+
+  // --- Novos RPCs para Deletar Posts ---
+
+  // RPC para solicitar a deleção de um post (Chamado no Coordenador)
+  rpc DeletePostRPC(DeletePostRequest) returns (ReplicationResponse);
+
+  // RPC para replicar a deleção de um post (Coordenador -> Seguidores)
+  rpc ReplicatePostDeletion(ReplicatePostDeletionRequest) returns (ReplicationResponse);
+
+  // RPC para replicar notificação (para mark-read e outras futuras replicações)
+  rpc ReplicateNotification (ReplicateNotificationRequest) returns (ReplicationResponse);
+
+  // RPCs para Marcar Notificações como Lidas
+  rpc ForwardMarkNotificationsRead (MarkNotificationsReadRequest) returns (google.protobuf.Empty);
+  rpc ReplicateMarkNotificationsRead (MarkNotificationsReadRequest) returns (ReplicationResponse);
+
+  // RPCs para Mensagens Privadas
+  rpc SendMessageRPC(SendMessageRequest) returns (SendMessageResponse);
+  rpc ReplicateMessage(ReplicateMessageRequest) returns (ReplicationResponse);
+}
+
+// Informações básicas de um servidor para registro e descoberta
+message ServerInfo {
+  string id = 1;       // ID único do servidor (ex: "server1")
+  string host = 2;     // Hostname ou IP do servidor onde o gRPC está ouvindo
+  int32 port = 3;      // Porta gRPC do servidor
+  // string serverName = 4; // Nome descritivo (opcional, conforme entidade) - Removido por não estar em instructions.md
+}
+
+// Resposta ao registro/atualização de um servidor
+message ServerRegistrationResponse {
+  bool success = 1;
+  string message = 2; // Mensagem opcional (ex: "Registrado com sucesso" ou erro)
+}
+
+// Resposta contendo a lista de servidores conhecidos
+message ServerListResponse {
+  repeated ServerInfo servers = 1; // Lista de informações dos servidores
+}
+
+// Requisição para obter o tempo (vazia)
+message GetTimeRequest {
+}
+
+// Resposta com o tempo atual em milissegundos (Unix epoch)
+message GetTimeResponse {
+  int64 currentTimeMillis = 1;
+}
+
+// Requisição para ajustar o tempo, contendo o offset calculado
+message AdjustTimeRequest {
+  int64 timeOffsetMillis = 1; // A diferença (positiva ou negativa) a ser aplicada
+}
+
+// Resposta ao ajuste de tempo (confirmação simples)
+message AdjustTimeResponse {
+  bool success = 1;
+}
+
+// Requisição de heartbeat
+message HeartbeatRequest {
+  string serverId = 1; // ID do servidor que está enviando o heartbeat
+}
+
+// Resposta ao heartbeat (confirmação simples)
+message HeartbeatResponse {
+  bool acknowledged = 1;
+}
+
+// Mensagem para anunciar o novo coordenador
+message CoordinatorAnnouncement {
+  string coordinatorId = 1; // ID do servidor que se tornou o coordenador
+}
+
+// ----- Novas Mensagens para Criação/Replicação de Usuário -----
+
+// Usada na replicação (contém o ID gerado)
+message UserInfo {
+  string id = 1;
+  string name = 2;
+}
+
+message CreateUserRequest {
+  string name = 1; // Nome do usuário a ser criado
+}
+
+message UserResponse {
+  string id = 1;   // ID do usuário criado (UUID)
+  string name = 2; // Nome do usuário criado
+}
+
+// Resposta genérica para operações de replicação
+message ReplicationResponse {
+  bool success = 1;
+  string message = 2; // Mensagem opcional (ex: "Replicado com sucesso")
+}
+
+// ----- Novas Mensagens e RPCs para Follow/Unfollow -----
+
+// Requisição para seguir ou deixar de seguir um usuário
+// Contém ambos os IDs, pois será usada tanto na chamada ao líder quanto na replicação.
+message FollowRequest {
+  string followerId = 1;
+  string followedId = 2;
+}
+
+// ----- Novas Mensagens para Posts -----
+
+// Requisição para criar um post
+message CreatePostRequest {
+  string user_id = 1;   // ID do usuário autor
+  string content = 2;   // Conteúdo do post
+}
+
+// Informações de um post para replicação e resposta
+message PostInfo {
+  string id = 1;               // ID do post (UUID)
+  string user_id = 2;          // ID do usuário autor
+  string content = 3;          // Conteúdo do post
+  int64 created_at_millis = 4; // Timestamp de criação (Unix epoch ms, tempo corrigido)
+  int32 logical_clock = 5;     // Valor do relógio lógico no momento da criação
+  // bool is_deleted = 6;      // Não incluído inicialmente, replicação de delete será separada
+}
+
+// Resposta da criação de post
+message CreatePostResponse {
+  PostInfo post_info = 1; // Retorna os detalhes do post criado
+}
+
+// ----- Novas Mensagens para Deletar Posts -----
+
+message DeletePostRequest {
+  string post_id = 1; // ID do post a ser deletado
+  string user_id = 2; // ID do usuário tentando deletar (para verificação de permissão)
+}
+
+message ReplicatePostDeletionRequest {
+  string post_id = 1; // ID do post que foi deletado
+}
+
+// --- Mensagens para Replicação de Notificação e Mark Read ---
+
+// Representação Protobuf da Notificação (para replicação e outras operações internas)
+message NotificationProto { // Nome diferente para não conflitar com a antiga mensagem Notification de stream
+  string id = 1;
+  string user_id = 2; // ID do usuário que recebe
+  string type = 3; // Ex: "NEW_POST"
+  string message = 4;
+  string related_entity_id = 5; // Ex: post_id
+  bool is_read = 6; // Adicionado para consistência com o modelo Java
+  google.protobuf.Timestamp created_at = 7; // Usar Timestamp do Protobuf
+}
+
+message ReplicateNotificationRequest {
+  NotificationProto notification = 1; // A notificação a ser replicada
+  string coordinator_id = 2; // ID de quem está mandando replicar
+}
+
+message MarkNotificationsReadRequest {
+  string user_id = 1;
+  repeated string notification_ids = 2;
+}
+
+// --- Fim Mensagens para Replicação --- 
+
+// Mensagens antigas de notificação (ReceiveNotificationsRequest, Notification, NotifyFollowerRequest, NotifyFollowerResponse) foram removidas/substituídas.
+
+// --- Mensagens para Mensagens Privadas ---
+
+// Representação Protobuf de uma Mensagem Privada
+message MessageInfo {
+  string id = 1;               // ID da mensagem (UUID)
+  string sender_id = 2;        // ID do remetente
+  string receiver_id = 3;      // ID do destinatário
+  string content = 4;          // Conteúdo da mensagem
+  int64 sent_at_millis = 5;    // Timestamp de envio (Unix epoch ms, tempo corrigido)
+  int32 logical_clock = 6;     // Valor do relógio lógico no momento da criação
+  bool is_read = 7;            // Status de leitura (para consistência, embora a replicação possa ocorrer antes da leitura)
+  string origin_server_id = 8; // ID do servidor que originou a mensagem
+}
+
+// Requisição para enviar uma mensagem
+message SendMessageRequest {
+  string sender_id = 1;
+  string receiver_id = 2;
+  string content = 3;
+}
+
+// Resposta ao envio de mensagem, retornando a mensagem criada
+message SendMessageResponse {
+  MessageInfo message_info = 1;
+}
+
+// Requisição para replicar uma mensagem criada
+message ReplicateMessageRequest {
+  MessageInfo message_info = 1;
+}
+
+// ... (garantir que está no final ou antes do último '}') ... 
