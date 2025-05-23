@@ -23,4 +23,4 @@ Para informações detalhadas sobre cada componente principal do sistema, consul
 
 *   **Backend API (Spring Boot/Java):** [Documentação Detalhada](https://github.com/YuriBykoff/PJ-CC7261/tree/main/springboot-api#readme)
 *   **Frontend (Next.js Playground):** [Documentação do Frontend](https://github.com/YuriBykoff/PJ-CC7261/tree/main/front-playground#readme)
-*   **Cliente Python (Exemplo/Testes):** [Documentação do Cliente Python](https://github.com/YuriBykoff/PJ-CC7261/blob/main/python-client/README.md) (Nota: o código principal deste cliente pode ter sido removido ou alterado, verifique o repositório para o estado atual).
+*   **Cliente Python (Exemplo/Testes):** [Documentação do Cliente Python](https://github.com/YuriBykoff/PJ-CC7261/blob/main/python-client/README.md)
