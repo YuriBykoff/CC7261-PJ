@@ -1,5 +1,11 @@
 # Rede Social Distribuída com gRPC
 
+Grupo 36:
+Yuri Bykoff 
+Cayque Cicarelli 
+Arthur Veloso
+Daniel Eiji
+
 ## Visão Geral
 
 Este projeto implementa um sistema distribuído para uma rede social, permitindo interações como criação de usuários, seguir outros usuários e, futuramente, postar textos e trocar mensagens privadas. O sistema é projetado para alta disponibilidade e consistência de dados através de múltiplos servidores replicados. Utiliza algoritmos de eleição de coordenador (Bullying), sincronização de relógios (Berkeley - conceitual) e replicação de dados para manter a integridade do sistema. A comunicação entre os componentes é realizada predominantemente via gRPC, com uma API REST disponível para interações cliente-servidor tradicionais.
